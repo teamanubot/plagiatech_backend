@@ -11,65 +11,92 @@
 
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
-            color: #222;
             margin: 0;
-            padding: 24px
+            background: #f7f8fb;
+            color: #1f2a44
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none
+        }
+
+        .wrap {
+            padding: 18px
         }
 
         .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 16px
+            margin-bottom: 12px
         }
 
         .brand {
-            font-weight: 700;
-            font-size: 18px;
-            color: #0d6efd
+            font-weight: 800;
+            color: #2563eb
         }
 
         .meta {
-            font-size: 12px;
-            line-height: 1.4;
-            text-align: right
+            font-size: 11px;
+            line-height: 1.5;
+            text-align: right;
+            color: #67728a
+        }
+
+        /* Layout 2 kolom (sidebar + main) */
+        .grid {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 16px
         }
 
         .card {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 14px
+            background: #fff;
+            border: 1px solid #e7e9f2;
+            border-radius: 12px
         }
 
-        h1 {
+        .card .body {
+            padding: 14px
+        }
+
+        .subtle {
+            color: #6e7892;
+            font-size: 12px
+        }
+
+        .h1 {
             font-size: 18px;
-            margin: 0 0 8px
+            margin: 0 0 6px
         }
 
-        h2 {
-            font-size: 15px;
-            margin: 0 0 8px
+        .h2 {
+            font-size: 14px;
+            margin: 0 0 6px
         }
 
-        .muted {
-            color: #6c757d
+        /* Sidebar */
+        .big {
+            font-size: 36px;
+            font-weight: 800
         }
 
         .pill {
             display: inline-block;
-            font-size: 12px;
             padding: 3px 8px;
             border-radius: 999px;
-            color: #fff
+            color: #fff;
+            font-size: 11px
         }
 
         .bar {
-            background: #e9ecef;
-            border-radius: 999px;
-            height: 12px;
             width: 100%;
-            overflow: hidden
+            height: 10px;
+            border-radius: 999px;
+            background: #eef1f6;
+            overflow: hidden;
+            margin-top: 6px
         }
 
         .bar>span {
@@ -77,145 +104,189 @@
             height: 100%
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px
+        .kv {
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 8px
         }
 
-        th,
-        td {
-            padding: 8px;
-            border-bottom: 1px solid #f1f3f5;
-            vertical-align: top
+        .kv b {
+            color: #1f2a44
         }
 
-        th {
-            background: #f8f9fa;
-            text-align: left
-        }
-
-        .small {
-            font-size: 11px
-        }
-
-        .legend-box {
+        /* Legend sumber */
+        .legend {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px
+            flex-direction: column;
+            gap: 10px
         }
 
-        .legend-item {
+        .item {
             display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px
+            gap: 10px
         }
 
-        .swatch {
+        .sw {
             width: 14px;
             height: 14px;
             border-radius: 3px;
-            border: 1px solid #ddd
+            border: 1px solid #d8dbe6;
+            margin-top: 3px
         }
 
-        .doc-box {
-            border: 1px dashed #cbd5e1;
-            padding: 12px;
-            border-radius: 8px;
-            background: #fff
+        .it-title {
+            font-weight: 600
+        }
+
+        .meter {
+            height: 8px;
+            background: #eef1f6;
+            border-radius: 999px;
+            overflow: hidden
+        }
+
+        .meter>span {
+            display: block;
+            height: 100%
+        }
+
+        /* Dokumen disorot */
+        .doc {
+            border: 1px dashed #cfd6e6;
+            border-radius: 10px;
+            background: #fff;
+            padding: 12px
+        }
+
+        .doc .content {
+            white-space: pre-wrap;
+            line-height: 1.7;
+            font-size: 12px
+        }
+
+        /* Highlight span warna datang dari server -> inline style */
+
+        /* Catatan */
+        .note {
+            font-size: 11px;
+            color: #6e7892
         }
     </style>
 </head>
 
 <body>
-    <div class="header">
-        <div>
-            <div class="brand">Plagiarism Checker — Receipt</div>
-            <div class="muted small">Gaya Turnitin • Sorot teks yang terindikasi</div>
-        </div>
-        <div class="meta">
-            Dibuat: {{ $generated_at->format('d M Y H:i') }} WIB<br>
-            Pengguna: {{ $user->name }}<br>
-            Dokumen: <strong>{{ $document->title }}</strong>
-        </div>
-    </div>
+    <div class="wrap">
 
-    <div class="card">
-        <h1>Ringkasan Similarity (Union Coverage)</h1>
-        <div style="display:flex; gap:14px; align-items:center">
+        <div class="header">
             <div>
-                <div class="muted">Overall Similarity</div>
-                <div style="font-size:34px; font-weight:700; color:{{ $risk['hex'] }}">{{ number_format($overall, 2) }}%
-                </div>
-                <span class="pill" style="background:{{ $risk['hex'] }}">{{ $risk['label'] }}</span>
-                <div class="small muted" style="margin-top:6px">
-                    Ditutup oleh gabungan sumber: {{ $covered_count }}/{{ $token_count }} token.
-                </div>
+                <div class="brand">Plagiarism Receipt</div>
+                <div class="subtle">Gaya ringkasan originality — versi kustom</div>
             </div>
-            <div style="flex:1">
-                <div class="bar"><span
-                        style="width: {{ min(100, max(0, $overall)) }}%; background: {{ $risk['hex'] }}"></span></div>
-                <div class="small muted" style="margin-top:6px">
-                    Warna di bawah menandai bagian teks yang terindikasi dan sumbernya.
-                </div>
+            <div class="meta">
+                Dibuat: {{ $generated_at->format('d M Y H:i') }} WIB<br>
+                Pengguna: {{ $user->name }}<br>
+                Dokumen: <b>{{ $document->title }}</b>
             </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>Legenda Sumber</h2>
-        @if (empty($sources))
-            <div class="small muted">Tidak ada sumber terdeteksi.</div>
-        @else
-            <div class="legend-box">
-                @foreach ($sources as $i => $s)
-                    <div class="legend-item">
-                        <span class="swatch" style="background: {{ $s['color'] ?? '#ffd54f' }}"></span>
-                        <div>
-                            <div><strong>[S{{ $i + 1 }}]</strong> {{ $s['title'] }}</div>
-                            <div class="small">
-                                Kontribusi: <strong>{{ number_format($s['contrib_pct'], 2) }}%</strong>
-                                · Jaccard {{ $s['jaccard'] ?? 0 }}% · Cosine {{ $s['cosine'] ?? 0 }}%<br>
-                                @if (!empty($s['pdf_url']))
-                                    <a href="{{ $s['pdf_url'] }}">PDF</a> ·
-                                @endif
-                                @if (!empty($s['url']))
-                                    <a href="{{ $s['url'] }}">Halaman</a>
-                                @endif
-                            </div>
-                            @if (!empty($s['snippets']))
-                                <div class="small" style="margin-top:4px">
-                                    @foreach ($s['snippets'] as $snip)
-                                        <div>— {!! $snip !!}</div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
+        <div class="grid">
+            {{-- ========== SIDEBAR ========== --}}
+            <div class="card">
+                <div class="body">
+                    <div class="subtle">Similarity Index</div>
+                    <div class="big" style="color:{{ $risk['hex'] }}">{{ number_format($overall, 2) }}%</div>
+                    <span class="pill" style="background:{{ $risk['hex'] }}">{{ $risk['label'] }}</span>
+
+                    <div class="bar"><span
+                            style="width:{{ min(100, max(0, $overall)) }}%;background:{{ $risk['hex'] }}"></span></div>
+
+                    <div class="kv">
+                        Ditutup oleh gabungan sumber:<br>
+                        <b>{{ $covered_count }}</b> dari <b>{{ $token_count }}</b> token<br>
+                        Sumber dianalisis: <b>{{ count($sources) }}</b>
                     </div>
-                @endforeach
+
+                    @if (!empty($sources))
+                        <div class="kv" style="margin-top:10px">
+                            <div class="subtle">Top Sumber</div>
+                            @foreach ($sources as $i => $s)
+                                @break($i === 3)
+                                <div style="margin:6px 0">
+                                    <div style="display:flex;justify-content:space-between;gap:8px">
+                                        <span><b>[S{{ $i + 1 }}]</b> {{ Str::limit($s['title'], 26) }}</span>
+                                        <b>{{ number_format($s['contrib_pct'], 2) }}%</b>
+                                    </div>
+                                    <div class="meter">
+                                        <span
+                                            style="width:{{ $s['contrib_pct'] }}%;background:{{ $s['color'] }}"></span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             </div>
-        @endif
-    </div>
 
-    <div class="card">
-        <h2>Dokumen yang Diunggah (Teks Disorot)</h2>
-        <div class="doc-box">
-            {!! $colored_html !!}
-        </div>
-        <div class="small muted" style="margin-top:6px">
-            Setiap potongan berwarna menunjuk pada sumber di legenda. Area tanpa warna = tidak terindikasi.
-        </div>
-    </div>
+            {{-- ========== MAIN CONTENT ========== --}}
+            <div class="card">
+                <div class="body">
+                    <div class="h1">Rincian Sumber</div>
+                    @if (empty($sources))
+                        <div class="subtle">Tidak ada sumber terdeteksi.</div>
+                    @else
+                        <div class="legend">
+                            @foreach ($sources as $i => $s)
+                                <div class="item">
+                                    <div class="sw" style="background:{{ $s['color'] }}"></div>
+                                    <div>
+                                        <div class="it-title">[S{{ $i + 1 }}] {{ $s['title'] }}</div>
+                                        <div class="subtle">
+                                            Kontribusi <b>{{ number_format($s['contrib_pct'], 2) }}%</b>
+                                            · Jaccard {{ number_format((float) ($s['jaccard'] ?? 0), 2) }}%
+                                            · Cosine {{ number_format((float) ($s['cosine'] ?? 0), 2) }}%
+                                            @if (!empty($s['pdf_url']))
+                                                · <a href="{{ $s['pdf_url'] }}">PDF</a>
+                                            @endif
+                                            @if (!empty($s['url']))
+                                                · <a href="{{ $s['url'] }}">Halaman</a>
+                                            @endif
+                                        </div>
+                                        @if (!empty($s['snippets']))
+                                            @foreach ($s['snippets'] as $snip)
+                                                <div class="subtle">— {!! $snip !!}</div>
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
 
-    <div class="card">
-        <h2>Catatan</h2>
-        <div class="small">
-            • Perhitungan overall berdasarkan cakupan token yang beririsan dengan sumber (union coverage).<br>
-            • Penentuan potongan mengandalkan n-gram 3 kata (shingling) dan penggabungan interval kontigu.<br>
-            • Angka Jaccard/Cosine ditampilkan sebagai pendamping, bukan penentu utama highlight.<br>
-            • Verifikasi manual tetap disarankan.
+                    <div style="height:10px"></div>
+                    <div class="h2">Dokumen yang Diunggah (Teks Disorot)</div>
+                    <div class="doc">
+                        <div class="content">{!! $colored_html !!}</div>
+                    </div>
+
+                    <div class="note" style="margin-top:8px">
+                        Penandaan dilakukan per-segmen karakter (berbasis n-gram 3 kata). Area tanpa warna = tidak
+                        terindikasi.
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <div style="margin-top:12px" class="card">
+            <div class="body">
+                <div class="h2">Catatan Metode</div>
+                <div class="note">
+                    • Overall dihitung dari gabungan area yang beririsan dengan sumber (union coverage).<br>
+                    • Jaccard & Cosine ditampilkan sebagai informasi pendamping.<br>
+                    • Warna di legenda identik dengan warna highlight pada teks.
+                </div>
+            </div>
+        </div>
+
     </div>
 </body>
 

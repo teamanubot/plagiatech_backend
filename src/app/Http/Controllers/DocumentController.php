@@ -90,7 +90,7 @@ class DocumentController extends Controller
         ];
 
         $html = view('reports.plagiarism_receipt_turnitin', [
-            'user'         => Auth::user(),
+            'user'         => Auth::user(), 
             'document'     => $document,
             'overall'      => $overall,
             'risk'         => $risk,
