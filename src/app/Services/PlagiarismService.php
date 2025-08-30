@@ -7,6 +7,7 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpWord\IOFactory;
 use Spatie\PdfToText\Pdf;
+use App\Services\EmbedService; // <— ADD: untuk embeddings (Ollama)
 
 class PlagiarismService
 {
@@ -22,6 +23,11 @@ class PlagiarismService
         '#ffccbc', // peach
     ];
 
+    /** cache embedding sederhana (in-process) */
+    private array $embedCache = [];
+
+    public function __construct(private ?EmbedService $embed = null) {} // <— ADD: DI optional
+
     public function checkPlagiarism(Document $document): array
     {
         $raw = $this->extractText($document);
@@ -36,6 +42,20 @@ class PlagiarismService
 
         $textNew = implode(' ', $tokensNew); // untuk TF-IDF dsb
 
+        // ==== PREP: Doc embedding (opsional) ====
+        $vecDoc = [];
+        $cosMode = 'tfidf';
+        if ($this->embed) {
+            try {
+                $vecDoc = $this->embedText($textNew);
+                if ($vecDoc) $cosMode = 'embed';
+            } catch (\Throwable $e) {
+                report($e);
+                $vecDoc = [];
+                $cosMode = 'tfidf';
+            }
+        }
+
         // ====== BUAT BEBERAPA QUERY ======
         $queries = [];
         if ($document->title) $queries[] = trim($document->title);
@@ -45,7 +65,7 @@ class PlagiarismService
             $q1 = implode(' ', array_slice($kw, 0, min(3, count($kw))));
             if ($q1) $queries[] = $q1;
             if (count($kw) >= 5) {
-                $q2 = $kw[2].' '.$kw[3].' '.$kw[4];
+                $q2 = $kw[2] . ' ' . $kw[3] . ' ' . $kw[4];
                 $queries[] = trim($q2);
             }
         }
@@ -56,14 +76,13 @@ class PlagiarismService
         $candidateMap = [];
         foreach ($queries as $q) {
             foreach ($this->searchArxivPaged($q, 60, 30) as $row) {
-                $sig = md5(($row['url'] ?? '').'|'.($row['title'] ?? ''));
+                $sig = md5(($row['url'] ?? '') . '|' . ($row['title'] ?? ''));
                 $candidateMap[$sig] = $row;
             }
         }
-        // fallback minimal kalau API paging kosong
         if (empty($candidateMap)) {
             foreach ($this->searchArxiv($queries[0] ?? '', 16) as $row) {
-                $sig = md5(($row['url'] ?? '').'|'.($row['title'] ?? ''));
+                $sig = md5(($row['url'] ?? '') . '|' . ($row['title'] ?? ''));
                 $candidateMap[$sig] = $row;
             }
         }
@@ -86,19 +105,43 @@ class PlagiarismService
             $matches = $this->matchRanges($docShinglePos, $tokensAbs, $n);
             if (empty($matches)) continue;
 
+            // Metrik pendamping
             $jaccard = $this->jaccard(
                 $this->makeShingles($tokensNew, $n),
                 $this->makeShingles($tokensAbs, $n)
             );
-            $cosine = $this->tfidfCosine($textNew, $abstract);
+
+            // Cosine: gunakan EMBEDDINGS kalau ada; fallback TF-IDF kalau tidak
+            $cosinePct = 0.0;
+            $cosineType = 'tfidf';
+            if ($vecDoc) {
+                try {
+                    $vecAbs = $this->embedText($abstract);
+                    if ($vecAbs) {
+                        $cosinePct = $this->embed->cosine($vecDoc, $vecAbs) * 100.0;
+                        $cosineType = 'embed';
+                    } else {
+                        $cosinePct = $this->tfidfCosine($textNew, $abstract) * 100.0;
+                        $cosineType = 'tfidf';
+                    }
+                } catch (\Throwable $e) {
+                    report($e);
+                    $cosinePct = $this->tfidfCosine($textNew, $abstract) * 100.0;
+                    $cosineType = 'tfidf';
+                }
+            } else {
+                $cosinePct = $this->tfidfCosine($textNew, $abstract) * 100.0;
+                $cosineType = 'tfidf';
+            }
 
             $allSources[] = [
-                'title'   => $paper['title'],
-                'url'     => $paper['url'],
-                'pdf_url' => $paper['pdf_url'],
-                'jaccard' => is_float($jaccard) ? round($jaccard * 100, 2) : 0.0,
-                'cosine'  => round($cosine * 100, 2),
-                'ranges'  => $matches, // [startTok, endTok]
+                'title'       => $paper['title'],
+                'url'         => $paper['url'],
+                'pdf_url'     => $paper['pdf_url'],
+                'jaccard'     => is_float($jaccard) ? round($jaccard * 100, 2) : 0.0,
+                'cosine'      => round($cosinePct, 2),   // <- tetap nama 'cosine' (kompatibel view)
+                'cosine_type' => $cosineType,            // <- info tambahan (optional dipakai di view)
+                'ranges'      => $matches,               // [startTok, endTok]
             ];
         }
         if (empty($allSources)) return [];
@@ -106,7 +149,7 @@ class PlagiarismService
         // Luas cakupan per sumber & urutkan
         foreach ($allSources as &$s) $s['covered_tokens'] = $this->countTokensCovered($s['ranges']);
         unset($s);
-        usort($allSources, fn($a,$b) => $b['covered_tokens'] <=> $a['covered_tokens']);
+        usort($allSources, fn($a, $b) => $b['covered_tokens'] <=> $a['covered_tokens']);
 
         // ====== COVERAGE OWNER dari SEMUA SUMBER (union semua) ======
         foreach ($allSources as $i => $s) {
@@ -162,7 +205,7 @@ class PlagiarismService
             'overall'        => $overall,
             'sources'        => $display,             // Top-K berwarna
             'sources_total'  => count($allSources),   // semua match
-            'others_summary' => ['count'=>$othersCount, 'contrib_pct'=>$othersPct],
+            'others_summary' => ['count' => $othersCount, 'contrib_pct' => $othersPct],
             'colored_html'   => $coloredHtml,
             'token_count'    => $N,
             'covered_count'  => $coveredTotal,
@@ -553,28 +596,39 @@ class PlagiarismService
     }
 
     /** Render HTML dari raw + segmen; warna hanya untuk owner yang ada di Top-K. */
-    private function renderColoredHtmlFromRaw(string $raw, array $charSegments, array $topK): string
-    {
-        $out = '';
-        $colors = [];
-        foreach ($topK as $i => $s) $colors[$i] = $s['color'] ?? '#fff59d';
+private function renderColoredHtmlFromRaw(string $raw, array $charSegments, array $topK): string
+{
+    $out = '';
 
-        $len = mb_strlen($raw);
-        foreach ($charSegments as [$own,$a,$b]) {
-            $a = max(0,$a); $b = min($len-1,$b);
-            if ($a>$b) continue;
-            $chunk = mb_substr($raw,$a,$b-$a+1);
-            $chunk = htmlspecialchars($chunk, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
-
-            // owner di luar Top-K: biarkan tanpa warna
-            if ($own === -1 || !array_key_exists($own, $colors)) {
-                $out .= $chunk;
-            } else {
-                $out .= '<span style="background:'.$colors[$own].'">'.$chunk.'</span>';
-            }
-        }
-        return '<div style="white-space:pre-wrap;line-height:1.7;font-size:12px;">'.$out.'</div>';
+    // map owner -> color
+    $colors = [];
+    foreach ($topK as $i => $s) {
+        $colors[$i] = $s['color'] ?? '#fff59d';
     }
+
+    $len = mb_strlen($raw);
+    foreach ($charSegments as [$own, $a, $b]) {
+        $a = max(0, $a);
+        $b = min($len - 1, $b);
+        if ($a > $b) {
+            continue;
+        }
+
+        $chunk = mb_substr($raw, $a, $b - $a + 1);
+        $chunk = htmlspecialchars($chunk, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        // owner di luar Top-K: biarkan tanpa warna
+        if ($own === -1 || !array_key_exists($own, $colors)) {
+            $out .= $chunk;
+        } else {
+            $out .= '<span style="background:' . $colors[$own] . '">' . $chunk . '</span>';
+        }
+    }
+
+    // pertahankan spasi & newline seperti asal
+    return '<div style="white-space:pre-wrap;line-height:1.7;font-size:12px;">' . $out . '</div>';
+}
+
 
     /** Snippet dari raw-char ranges. */
     private function makeSnippetsFromChar(string $raw, array $charRanges, int $contextChars = 120, int $max = 2): array
@@ -590,5 +644,18 @@ class PlagiarismService
             if (count($snips) >= $max) break;
         }
         return $snips;
+    }
+
+    /* ============ Helpers: embeddings cache wrapper ============ */
+
+    private function embedText(string $text): array
+    {
+        if (!$this->embed) return [];
+        $key = md5($text);
+        if (isset($this->embedCache[$key])) return $this->embedCache[$key];
+        // Bisa dibatasi panjang agar ringan
+        $text = mb_substr($text, 0, 5000);
+        $vec = $this->embed->embed($text);
+        return $this->embedCache[$key] = ($vec ?: []);
     }
 }
