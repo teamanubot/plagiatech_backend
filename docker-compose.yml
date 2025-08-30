@@ -11,6 +11,9 @@ services:
     working_dir: /var/www/html
     depends_on: 
       - mysql_ai
+      - ollama              # <— tunggu ollama siap
+    environment:
+      OLLAMA_BASE: http://ollama:11434   # <— URL internal antar-container
 
   mysql_ai:
     image: mariadb:10.2
@@ -43,3 +46,26 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - php_ai
+
+  # === NEW: OLLAMA (LLM/Embeddings server) ===
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"        # <— opsional; agar bisa akses dari host (curl/postman)
+    environment:
+      - OLLAMA_HOST=0.0.0.0  # dengarkan dari semua interface
+    volumes:
+      - ollama:/root/.ollama # cache model biar tidak download ulang
+    # Untuk GPU Nvidia, jika sudah install NVIDIA Container Toolkit, aktifkan baris di bawah:
+    # gpus: all
+    # healthcheck (opsional; uncomment jika curl tersedia di image kamu)
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget -qO- http://localhost:11434/api/version || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+volumes:
+  ollama:
