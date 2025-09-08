@@ -257,7 +257,10 @@ class PlagiarismService
         for ($i = 1; $i < count($marks); $i++) {
             [$a, $b] = $marks[$i];
             if ($a <= $curB + 1) $curB = max($curB, $b);
-            else { $merged[] = [$curA, $curB]; [$curA, $curB] = [$a, $b]; }
+            else {
+                $merged[] = [$curA, $curB];
+                [$curA, $curB] = [$a, $b];
+            }
         }
         $merged[] = [$curA, $curB];
         return $merged;
@@ -344,7 +347,7 @@ class PlagiarismService
 
     private function topKeywords(array $tokens, int $k = 8): array
     {
-        static $stop = ['the','and','for','with','that','this','are','was','were','have','has','had','of','in','on','to','a','an','is','it','as','by','at','from','be','or','we','our','their','your'];
+        static $stop = ['the', 'and', 'for', 'with', 'that', 'this', 'are', 'was', 'were', 'have', 'has', 'had', 'of', 'in', 'on', 'to', 'a', 'an', 'is', 'it', 'as', 'by', 'at', 'from', 'be', 'or', 'we', 'our', 'their', 'your'];
         $freq = [];
         foreach ($tokens as $t) {
             if (is_numeric($t)) continue;
@@ -392,11 +395,11 @@ class PlagiarismService
                     $href = (string)$link['href'];
                     $type = (string)$link['type'];
                     $ttl  = (string)$link['title'];
-                    if ($ttl==='pdf' || $type==='application/pdf' || str_contains($href,'/pdf/')) {
+                    if ($ttl === 'pdf' || $type === 'application/pdf' || str_contains($href, '/pdf/')) {
                         $pdfUrl = $this->forceHttps($href);
                     }
                 }
-                $key = $url ?: ($pdfUrl ?? md5($title.$summary));
+                $key = $url ?: ($pdfUrl ?? md5($title . $summary));
                 $outMap[$key] = [
                     'title'   => $title,
                     'summary' => $summary,
@@ -450,7 +453,7 @@ class PlagiarismService
                 $href = (string)$link['href'];
                 $type = (string)$link['type'];
                 $titleAttr = (string)$link['title'];
-                if ($titleAttr==='pdf' || $type==='application/pdf' || str_contains($href,'/pdf/')) {
+                if ($titleAttr === 'pdf' || $type === 'application/pdf' || str_contains($href, '/pdf/')) {
                     $pdfUrl = $this->forceHttps($href);
                     break;
                 }
@@ -497,11 +500,15 @@ class PlagiarismService
 
         $vocab = array_unique(array_merge(array_keys($fa), array_keys($fb)));
 
-        $dot = 0.0; $na = 0.0; $nb = 0.0;
+        $dot = 0.0;
+        $na = 0.0;
+        $nb = 0.0;
         foreach ($vocab as $term) {
             $wa = isset($fa[$term]) ? log(1 + $fa[$term]) : 0.0;
             $wb = isset($fb[$term]) ? log(1 + $fb[$term]) : 0.0;
-            $dot += $wa * $wb; $na += $wa*$wa; $nb += $wb*$wb;
+            $dot += $wa * $wb;
+            $na += $wa * $wa;
+            $nb += $wb * $wb;
         }
         if ($na == 0.0 || $nb == 0.0) return 0.0;
         return $dot / (sqrt($na) * sqrt($nb));
@@ -518,10 +525,12 @@ class PlagiarismService
     private function docTokensWithOffsets(string $raw): array
     {
         $len = mb_strlen($raw);
-        $tokens = []; $offsets = [];
-        $buf=''; $tStart=null;
+        $tokens = [];
+        $offsets = [];
+        $buf = '';
+        $tStart = null;
 
-        for ($i=0; $i<$len; $i++) {
+        for ($i = 0; $i < $len; $i++) {
             $ch = mb_substr($raw, $i, 1);
             if (preg_match('/[A-Za-z0-9]/u', $ch)) {
                 if ($tStart === null) $tStart = $i;
@@ -529,30 +538,35 @@ class PlagiarismService
             } else {
                 if ($tStart !== null) {
                     $tokens[]  = $buf;
-                    $offsets[] = [$tStart, $i-1];
-                    $buf=''; $tStart=null;
+                    $offsets[] = [$tStart, $i - 1];
+                    $buf = '';
+                    $tStart = null;
                 }
             }
         }
         if ($tStart !== null) {
             $tokens[]  = $buf;
-            $offsets[] = [$tStart, $len-1];
+            $offsets[] = [$tStart, $len - 1];
         }
-        return ['tokens'=>$tokens,'offsets'=>$offsets];
+        return ['tokens' => $tokens, 'offsets' => $offsets];
     }
 
     /** Merge interval [a,b] yang tumpang tindih/kontigu (berbasis char index). */
     private function mergeIntervals(array $ranges): array
     {
         if (empty($ranges)) return [];
-        usort($ranges, fn($x,$y)=>$x[0]<=>$y[0]);
-        $out=[]; [$A,$B]=$ranges[0];
-        for ($i=1;$i<count($ranges);$i++){
-            [$a,$b]=$ranges[$i];
-            if ($a <= $B+1) $B = max($B,$b);
-            else { $out[] = [$A,$B]; [$A,$B]=[$a,$b]; }
+        usort($ranges, fn($x, $y) => $x[0] <=> $y[0]);
+        $out = [];
+        [$A, $B] = $ranges[0];
+        for ($i = 1; $i < count($ranges); $i++) {
+            [$a, $b] = $ranges[$i];
+            if ($a <= $B + 1) $B = max($B, $b);
+            else {
+                $out[] = [$A, $B];
+                [$A, $B] = [$a, $b];
+            }
         }
-        $out[] = [$A,$B];
+        $out[] = [$A, $B];
         return $out;
     }
 
@@ -563,71 +577,75 @@ class PlagiarismService
         $N = count($offsets);
         $segs = [];
 
-        if ($N === 0) return [[-1, 0, max(0,$lenRaw-1)]];
+        if ($N === 0) return [[-1, 0, max(0, $lenRaw - 1)]];
 
-        if ($offsets[0][0] > 0) $segs[] = [-1, 0, $offsets[0][0]-1];
+        if ($offsets[0][0] > 0) $segs[] = [-1, 0, $offsets[0][0] - 1];
 
         $curOwner = $coverageOwner[0] ?? -1;
         $segStartTok = 0;
-        for ($i=1; $i<$N; $i++) {
+        for ($i = 1; $i < $N; $i++) {
             if (($coverageOwner[$i] ?? -1) !== $curOwner) {
                 $startChar = $offsets[$segStartTok][0];
-                $endChar   = $offsets[$i][0]-1;
-                $segs[] = [$curOwner, $startChar, max($startChar,$endChar)];
+                $endChar   = $offsets[$i][0] - 1;
+                $segs[] = [$curOwner, $startChar, max($startChar, $endChar)];
                 $curOwner = $coverageOwner[$i] ?? -1;
                 $segStartTok = $i;
             }
         }
         $startChar = $offsets[$segStartTok][0];
-        $endChar   = $offsets[$N-1][1];
+        $endChar   = $offsets[$N - 1][1];
         $segs[] = [$curOwner, $startChar, $endChar];
 
-        if ($offsets[$N-1][1] < $lenRaw-1) $segs[] = [-1, $offsets[$N-1][1]+1, $lenRaw-1];
+        if ($offsets[$N - 1][1] < $lenRaw - 1) $segs[] = [-1, $offsets[$N - 1][1] + 1, $lenRaw - 1];
 
         // merge berurutan dengan owner sama
-        $merged=[];
-        foreach ($segs as $seg){
-            if (!$merged){ $merged[]=$seg; continue; }
-            [$own,$a,$b]=$seg; [$pOwn,$pA,$pB]=$merged[count($merged)-1];
-            if ($own===$pOwn && $a<= $pB+1) $merged[count($merged)-1]=[$own,$pA,max($pB,$b)];
-            else $merged[]=$seg;
+        $merged = [];
+        foreach ($segs as $seg) {
+            if (!$merged) {
+                $merged[] = $seg;
+                continue;
+            }
+            [$own, $a, $b] = $seg;
+            [$pOwn, $pA, $pB] = $merged[count($merged) - 1];
+            if ($own === $pOwn && $a <= $pB + 1) $merged[count($merged) - 1] = [$own, $pA, max($pB, $b)];
+            else $merged[] = $seg;
         }
         return $merged;
     }
 
     /** Render HTML dari raw + segmen; warna hanya untuk owner yang ada di Top-K. */
-private function renderColoredHtmlFromRaw(string $raw, array $charSegments, array $topK): string
-{
-    $out = '';
+    private function renderColoredHtmlFromRaw(string $raw, array $charSegments, array $topK): string
+    {
+        $out = '';
 
-    // map owner -> color
-    $colors = [];
-    foreach ($topK as $i => $s) {
-        $colors[$i] = $s['color'] ?? '#fff59d';
-    }
-
-    $len = mb_strlen($raw);
-    foreach ($charSegments as [$own, $a, $b]) {
-        $a = max(0, $a);
-        $b = min($len - 1, $b);
-        if ($a > $b) {
-            continue;
+        // map owner -> color
+        $colors = [];
+        foreach ($topK as $i => $s) {
+            $colors[$i] = $s['color'] ?? '#fff59d';
         }
 
-        $chunk = mb_substr($raw, $a, $b - $a + 1);
-        $chunk = htmlspecialchars($chunk, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $len = mb_strlen($raw);
+        foreach ($charSegments as [$own, $a, $b]) {
+            $a = max(0, $a);
+            $b = min($len - 1, $b);
+            if ($a > $b) {
+                continue;
+            }
 
-        // owner di luar Top-K: biarkan tanpa warna
-        if ($own === -1 || !array_key_exists($own, $colors)) {
-            $out .= $chunk;
-        } else {
-            $out .= '<span style="background:' . $colors[$own] . '">' . $chunk . '</span>';
+            $chunk = mb_substr($raw, $a, $b - $a + 1);
+            $chunk = htmlspecialchars($chunk, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+            // owner di luar Top-K: biarkan tanpa warna
+            if ($own === -1 || !array_key_exists($own, $colors)) {
+                $out .= $chunk;
+            } else {
+                $out .= '<span style="background:' . $colors[$own] . '">' . $chunk . '</span>';
+            }
         }
-    }
 
-    // pertahankan spasi & newline seperti asal
-    return '<div style="white-space:pre-wrap;line-height:1.7;font-size:12px;">' . $out . '</div>';
-}
+        // pertahankan spasi & newline seperti asal
+        return '<div style="white-space:pre-wrap;line-height:1.7;font-size:12px;">' . $out . '</div>';
+    }
 
 
     /** Snippet dari raw-char ranges. */
@@ -635,12 +653,12 @@ private function renderColoredHtmlFromRaw(string $raw, array $charSegments, arra
     {
         $snips = [];
         $len = mb_strlen($raw);
-        foreach ($charRanges as [$a,$b]) {
+        foreach ($charRanges as [$a, $b]) {
             $start = max(0, $a - $contextChars);
             $end   = min($len - 1, $b + $contextChars);
             $slice = mb_substr($raw, $start, $end - $start + 1);
             $slice = preg_replace('/\s+/u', ' ', $slice);
-            $snips[] = '… ' . htmlspecialchars(trim($slice), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') . ' …';
+            $snips[] = '… ' . htmlspecialchars(trim($slice), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' …';
             if (count($snips) >= $max) break;
         }
         return $snips;
