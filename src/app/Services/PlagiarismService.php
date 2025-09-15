@@ -24,7 +24,7 @@ class PlagiarismService
     ];
 
     /** cache embedding sederhana (in-process) */
-    private array $embedCache = [];
+    private array $embedCache = [   ];
 
     public function __construct(private ?EmbedService $embed = null) {} // <— ADD: DI optional
 
